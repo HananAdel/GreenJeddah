@@ -1,0 +1,140 @@
+.fvc-page {
+  display: flex;
+  background-color: #111;
+  color: white;
+  height: 100vh;
+}
+
+.fvc-sidebar {
+  width: 320px;
+  margin-top: 70px;
+  background-color: #1f1f1f;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  box-shadow: 4px 0 12px rgba(0, 255, 136, 0.1);
+}
+
+.fvc-sidebar h2 {
+  font-size: 18px;
+  color: #2ecc71;
+}
+
+.fvc-sidebar ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.fvc-sidebar select,
+.fvc-sidebar input[type="range"],
+.fvc-sidebar button {
+  margin-top: 8px;
+}
+
+.fvc-sidebar button {
+  background-color: #2ecc71;
+  color: black;
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.fvc-map-container {
+  flex-grow: 1;
+  position: relative;
+  margin-top: 70px; /* ⬅️ Push it under the nav bar */
+  height: calc(100vh - 70px); /* ⬅️ Make sure height stays full */
+  z-index: 0;
+  overflow: auto;
+}
+
+.fvc-result {
+  position: absolute;
+  bottom: 30px;
+  left: 30px;
+  max-width: 450px;
+  background-color: white;
+  color: black;
+  border-radius: 15px;
+  padding: 20px;
+  font-size: 14px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  z-index: 1000; /* ⬅️ ensures it's above the map */
+}
+.fvc-error-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.fvc-error-box {
+  background: white;
+  color: black;
+  padding: 25px 30px;
+  border-radius: 15px;
+  box-shadow: 0 0 20px rgba(0,0,0,0.3);
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+}
+
+.fvc-error-box h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.fvc-error-box button {
+  padding: 8px 16px;
+  border: none;
+  background-color: #2ecc71;
+  color: black;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.fvc-error-box button:hover {
+  background-color: #27ae60;
+  color: white;
+}
+.fvc-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(17, 17, 17, 0.75);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.fvc-spinner {
+  border: 5px solid #eee;
+  border-top: 5px solid #2ecc71;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+

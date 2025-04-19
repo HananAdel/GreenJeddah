@@ -1,0 +1,80 @@
+/* General Reset */
+.custom-services-container {
+ 
+  background-color: black;
+  background-image: linear-gradient(to top right, #1f1f1f 30%, transparent),
+                    linear-gradient(to bottom left, #1f1f1f 30%, transparent);
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh; /* Full height */
+  gap: 30px;
+  padding: 40px;
+}
+
+
+.custom-services-container {
+  min-height: 100vh;
+  flex-wrap: wrap; /* Add this */
+}
+
+.custom-service-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  text-align: center;
+  background-color: #121212;
+  color: white;
+  padding: 20px;
+  border-radius: 20px;
+  box-shadow: 0 0 30px #00ff889d;
+  height: 300px;
+  width: 300px;
+}
+
+.custom-service-card button {
+  background-color: #00ff88;
+  color: black;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 20px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+
+.custom-service-card:hover {
+  box-shadow: 0 8px 20px rgba(0, 255, 0, 0.2);
+}
+
+.custom-service-title {
+  font-size: 24px;
+  font-weight: bold;
+  color: #2ecc71;
+  margin-bottom: 15px;
+}
+
+.custom-service-description {
+  font-size: 16px;
+  color: #ddd;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.custom-service-button {
+  background-color: #2ecc71;
+  color: black;
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.custom-service-button:hover {
+  background-color: #27ae60;
+  color: white;
+}
