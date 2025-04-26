@@ -13,7 +13,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-
 const SelectAnalysis = () => {
   const [analysisType, setAnalysisType] = useState("air");
   const [mapUrl, setMapUrl] = useState(
@@ -21,8 +20,10 @@ const SelectAnalysis = () => {
   );
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [pollutant, setPollutant] = useState("NO2");
+  const [airPollutant, setAirPollutant] = useState("NO2");
   const [uhiIndex, setUhiIndex] = useState("UHI");
+  const [waterPollutant, setWaterPollutant] = useState("NDWI");
+  const [droughtIndex, setDroughtIndex] = useState("NDVI");
   const [statusMsg, setStatusMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [chartData, setChartData] = useState<any[]>([]);
@@ -42,6 +43,8 @@ const SelectAnalysis = () => {
     let endpoint = "";
     if (analysisType === "air") endpoint = "air_analysis";
     else if (analysisType === "uhi") endpoint = "uhi_analysis";
+    else if (analysisType === "water") endpoint = "water_analysis";
+    else if (analysisType === "drought") endpoint = "drought_analysis";
     else return;
 
     const formData = new FormData();
@@ -50,9 +53,13 @@ const SelectAnalysis = () => {
     formData.append("aggregation", aggregation);
 
     if (analysisType === "air") {
-      formData.append("selected_index", pollutant);
+      formData.append("selected_index", airPollutant);
     } else if (analysisType === "uhi") {
       formData.append("selected_index", uhiIndex);
+    } else if (analysisType === "water") {
+      formData.append("selected_index", waterPollutant);
+    } else if (analysisType === "drought") {
+      formData.append("selected_index", droughtIndex);
     }
 
     try {
@@ -64,11 +71,14 @@ const SelectAnalysis = () => {
       const data = await res.json();
       if (data.map_url) {
         setMapUrl(
-          `http://127.0.0.1:5000/static/${data.map_url.replace(/^static\//, "")}`
+          `http://127.0.0.1:5000/static/${data.map_url.replace(
+            /^static\//,
+            ""
+          )}`
         );
 
         setChartData(data.chart_data || []);
-        setAnalysisText(data.analysis_text || ""); // 🆕 Save AI text
+        setAnalysisText(data.analysis_text || "");
         setStatusMsg("");
       } else {
         setStatusMsg("Failed to load map.");
@@ -86,14 +96,21 @@ const SelectAnalysis = () => {
     const csvRows = [
       ["Index", "Date", "Value"],
       ...chartData.map((d) => [
-        analysisType === "uhi" ? uhiIndex : pollutant,
+        analysisType === "uhi"
+          ? uhiIndex
+          : analysisType === "air"
+          ? airPollutant
+          : analysisType === "water"
+          ? waterPollutant
+          : droughtIndex,
         d.date,
         d.value,
       ]),
     ];
 
     const csvContent =
-      "data:text/csv;charset=utf-8," + csvRows.map((e) => e.join(",")).join("\n");
+      "data:text/csv;charset=utf-8," +
+      csvRows.map((e) => e.join(",")).join("\n");
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -106,31 +123,41 @@ const SelectAnalysis = () => {
   //  Export PDF
   const exportPDF = () => {
     const doc = new jsPDF();
-    const indexName = analysisType === "uhi" ? uhiIndex : pollutant;
-  
+
+    let indexName;
+    if (analysisType === "air") {
+      indexName = airPollutant;
+    } else if (analysisType === "uhi") {
+      indexName = uhiIndex;
+    } else if (analysisType === "water") {
+      indexName = waterPollutant;
+    } else if (analysisType === "drought") {
+      indexName = droughtIndex;
+    }
+
     // --- Page 1: AI Summary ---
     doc.setFont("Times", "Normal");
     doc.setFontSize(18);
     doc.setTextColor(46, 204, 113);
     doc.text("AI Analysis Summary", 10, 20);
-  
+
     doc.setFontSize(12);
     doc.setTextColor(0, 0, 0);
     doc.setFont("Times", "Normal");
-  
+
     // Clean markdown-like text into readable layout
     let cleaned = analysisText
       .replace(/\*\*(.*?)\*\*/g, (_, p1) => `\n\n${p1.toUpperCase()}\n`) // Section titles
-      .replace(/\* (.*?)(?=\n|$)/g, '   $1')                            // Bullets
-      .replace(/\n{2,}/g, "\n")                                       // Double line spacing
-      .replace(/:{2,}/g, ':')                                           // Fix "::"
-      .replace(/`/g, '');                                               // Remove code ticks
-  
+      .replace(/\* (.*?)(?=\n|$)/g, "   $1") // Bullets
+      .replace(/\n{2,}/g, "\n") // Double line spacing
+      .replace(/:{2,}/g, ":") // Fix "::"
+      .replace(/`/g, ""); // Remove code ticks
+
     const lines = doc.splitTextToSize(cleaned.trim(), 180);
-  
+
     let y = 30;
     const lineHeight = 8;
-  
+
     lines.forEach((line) => {
       // Add spacing before section titles
       if (line === line.toUpperCase() && line.length < 40) {
@@ -139,17 +166,17 @@ const SelectAnalysis = () => {
       } else {
         doc.setFont("Times", "Normal");
       }
-  
+
       doc.text(line, 10, y);
       y += lineHeight;
-  
+
       // If nearing page bottom
       if (y > 270) {
         doc.addPage();
         y = 20;
       }
     });
-  
+
     // --- Page 2: Time Series Table ---
     if (chartData.length > 0) {
       doc.addPage();
@@ -157,13 +184,13 @@ const SelectAnalysis = () => {
       doc.setFontSize(16);
       doc.setTextColor(46, 204, 113);
       doc.text("Time Series Trend Data", 10, 20);
-  
+
       const tableData = chartData.map((d) => [
         indexName,
         d.date,
         d.value.toFixed(2),
       ]);
-  
+
       autoTable(doc, {
         head: [["Index", "Date", "Value"]],
         body: tableData,
@@ -171,16 +198,16 @@ const SelectAnalysis = () => {
         headStyles: {
           fillColor: [46, 204, 113],
           textColor: 255,
-          fontStyle: 'bold',
-          font: 'times'
+          fontStyle: "bold",
+          font: "times",
         },
         bodyStyles: {
-          font: 'times',
+          font: "times",
           fontSize: 11,
           textColor: 50,
         },
         styles: {
-          halign: 'center',
+          halign: "center",
           cellPadding: 4,
         },
         alternateRowStyles: {
@@ -188,12 +215,9 @@ const SelectAnalysis = () => {
         },
       });
     }
-  
+
     doc.save("analysis_report.pdf");
   };
-  
-  
-  
 
   return (
     <div className="analysis-page-fixed">
@@ -208,8 +232,8 @@ const SelectAnalysis = () => {
           >
             <option value="air">Air Quality</option>
             <option value="uhi">Urban Heat Island (UHI)</option>
-            <option value="water">Water Quality (Coming Soon)</option>
-            <option value="drought">Drought Monitoring (Coming Soon)</option>
+            <option value="water">Water Quality</option>
+            <option value="drought">Drought Monitoring</option>
           </select>
 
           <form onSubmit={handleSubmit} className="analysis-form">
@@ -218,8 +242,8 @@ const SelectAnalysis = () => {
               <div className="form-row">
                 <label>Pollutant:</label>
                 <select
-                  value={pollutant}
-                  onChange={(e) => setPollutant(e.target.value)}
+                  value={airPollutant}
+                  onChange={(e) => setAirPollutant(e.target.value)}
                 >
                   <option value="NO2">NO2</option>
                   <option value="SO2">SO2</option>
@@ -240,6 +264,34 @@ const SelectAnalysis = () => {
                   <option value="UHI">UHI</option>
                   <option value="LST">LST</option>
                   <option value="UTFVI">UTFVI</option>
+                </select>
+              </div>
+            )}
+            {/* If Water Quality */}
+            {analysisType === "water" && (
+              <div className="form-row">
+                <label>Index:</label>
+                <select
+                  value={waterPollutant}
+                  onChange={(e) => setWaterPollutant(e.target.value)}
+                >
+                  <option value="NDWI">NDWI</option>
+                  <option value="MNDWI">MNDWI</option>
+                  <option value="Turbidity">Turbidity</option>
+                </select>
+              </div>
+            )}
+            {/* If Drought */}
+            {analysisType === "drought" && (
+              <div className="form-row">
+                <label>Index:</label>
+                <select
+                  value={droughtIndex}
+                  onChange={(e) => setDroughtIndex(e.target.value)}
+                >
+                  <option value="NDVI">NDVI</option>
+                  <option value="VCI">VCI</option>
+                  <option value="DSI">DSI</option>
                 </select>
               </div>
             )}
@@ -372,13 +424,22 @@ const SelectAnalysis = () => {
                 children={analysisText}
                 components={{
                   h1: ({ node, ...props }) => (
-                    <h1 style={{ fontSize: "24px", color: "#2ecc71" }} {...props} />
+                    <h1
+                      style={{ fontSize: "24px", color: "#2ecc71" }}
+                      {...props}
+                    />
                   ),
                   h2: ({ node, ...props }) => (
-                    <h2 style={{ fontSize: "20px", color: "#2ecc71" }} {...props} />
+                    <h2
+                      style={{ fontSize: "20px", color: "#2ecc71" }}
+                      {...props}
+                    />
                   ),
                   p: ({ node, ...props }) => (
-                    <p style={{ fontSize: "14px", color: "#cccccc" }} {...props} />
+                    <p
+                      style={{ fontSize: "14px", color: "#cccccc" }}
+                      {...props}
+                    />
                   ),
                   strong: ({ node, ...props }) => (
                     <strong style={{ color: "#ffffff" }} {...props} />

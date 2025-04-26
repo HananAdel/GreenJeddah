@@ -5,7 +5,8 @@ from flask_cors import CORS
 from Location import Location  
 from Factory.AirQuality import AirQuality
 from Factory.UHI import UHI
-
+from Factory.WaterQuality import WaterQuality
+from Factory.Drought import Drought
 
 
 app = Flask(__name__)
@@ -80,8 +81,56 @@ def uhi_analysis():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+@app.route("/water_analysis", methods=["POST"])
+def water_analysis():
+    try:
+        start_date = request.form["start_date"]
+        end_date = request.form["end_date"]
+        selected_index = request.form["selected_index"]
+        aggregation = request.form.get("aggregation", "daily")
 
+        location = Location.get_predefined_region("jeddah").get_geometry()
+        analysis = WaterQuality(name=selected_index, location=location, startTime=start_date, endTime=end_date)
 
+        map_url = analysis.generateMap()
+        chart_data = analysis.generateChart(aggregation)
+        analysis_text = analysis.generateAiAnalysis()
+
+        return jsonify({
+            "map_url": map_url,
+            "chart_data": chart_data,
+            "analysis_text": analysis_text
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+    
+@app.route("/drought_analysis", methods=["POST"])
+def drought_analysis():
+    try:
+        start_date = request.form["start_date"]
+        end_date = request.form["end_date"]
+        selected_index = request.form["selected_index"]
+        aggregation = request.form.get("aggregation", "daily")
+
+        location = Location.get_predefined_region("jeddah_admin").get_geometry()
+
+        analysis = Drought(name=selected_index, location=location, startTime=start_date, endTime=end_date)
+
+        map_url = analysis.generateMap()
+        chart_data = analysis.generateChart(aggregation)
+        analysis_text = analysis.generateAiAnalysis()
+
+        return jsonify({
+            "map_url": map_url,
+            "chart_data": chart_data,
+            "analysis_text": analysis_text
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/predict_fvc", methods=["POST"])
 def predict_fvc():
