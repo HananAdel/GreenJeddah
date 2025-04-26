@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
 import "./SelectAnalysis.css";
+import ReactMarkdown from "react-markdown";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   LineChart,
   Line,
@@ -10,6 +13,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+
 const SelectAnalysis = () => {
   const [analysisType, setAnalysisType] = useState("air");
   const [mapUrl, setMapUrl] = useState(
@@ -18,10 +22,12 @@ const SelectAnalysis = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [pollutant, setPollutant] = useState("NO2");
+  const [uhiIndex, setUhiIndex] = useState("UHI");
   const [statusMsg, setStatusMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [chartData, setChartData] = useState<any[]>([]);
   const [aggregation, setAggregation] = useState("daily");
+  const [analysisText, setAnalysisText] = useState(""); // 🆕 For AI text
 
   useEffect(() => {
     if (chartData.length > 0) {
@@ -31,28 +37,41 @@ const SelectAnalysis = () => {
 
   const handleSubmit = async (e?: React.FormEvent | Event) => {
     e?.preventDefault?.();
-    if (analysisType !== "air") return;
     setIsLoading(true);
+
+    let endpoint = "";
+    if (analysisType === "air") endpoint = "air_analysis";
+    else if (analysisType === "uhi") endpoint = "uhi_analysis";
+    else return;
 
     const formData = new FormData();
     formData.append("start_date", startDate);
     formData.append("end_date", endDate);
-    formData.append("map_type", pollutant);
     formData.append("aggregation", aggregation);
 
+    if (analysisType === "air") {
+      formData.append("selected_index", pollutant);
+    } else if (analysisType === "uhi") {
+      formData.append("selected_index", uhiIndex);
+    }
+
     try {
-      const res = await fetch("http://127.0.0.1:5000/air_analysis", {
+      const res = await fetch(`http://127.0.0.1:5000/${endpoint}`, {
         method: "POST",
         body: formData,
       });
 
       const data = await res.json();
       if (data.map_url) {
-        setMapUrl(`http://127.0.0.1:5000/${data.map_url}`);
+        setMapUrl(
+          `http://127.0.0.1:5000/static/${data.map_url.replace(/^static\//, "")}`
+        );
+
         setChartData(data.chart_data || []);
+        setAnalysisText(data.analysis_text || ""); // 🆕 Save AI text
         setStatusMsg("");
       } else {
-        setStatusMsg("Failed to load air quality map.");
+        setStatusMsg("Failed to load map.");
       }
     } catch (err) {
       console.error(err);
@@ -62,79 +81,124 @@ const SelectAnalysis = () => {
     }
   };
 
-  const getChartExplanation = (type: string) => {
-    switch (type) {
-      case "NO2":
-        return "This chart shows average NO₂ concentrations (μmol/m²) over your selected region and date range. NO₂ is a key pollutant from vehicle and industrial emissions.";
-      case "SO2":
-        return "SO₂ levels indicate the presence of sulfur-based pollution, typically from fossil fuel combustion and industrial processes.";
-      case "CO":
-        return "CO is a colorless gas produced by incomplete combustion. This chart reflects its atmospheric concentration.";
-      case "Aerosol":
-        return "This chart shows the Absorbing Aerosol Index (AAI), a unitless measure indicating the presence of UV-absorbing particles such as dust and smoke.";
-      default:
-        return "";
+  //  Export CSV
+  const exportCSV = () => {
+    const csvRows = [
+      ["Index", "Date", "Value"],
+      ...chartData.map((d) => [
+        analysisType === "uhi" ? uhiIndex : pollutant,
+        d.date,
+        d.value,
+      ]),
+    ];
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," + csvRows.map((e) => e.join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "chart_data.csv");
+    document.body.appendChild(link);
+    link.click();
+  };
+
+  //  Export PDF
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    const indexName = analysisType === "uhi" ? uhiIndex : pollutant;
+  
+    // --- Page 1: AI Summary ---
+    doc.setFont("Times", "Normal");
+    doc.setFontSize(18);
+    doc.setTextColor(46, 204, 113);
+    doc.text("AI Analysis Summary", 10, 20);
+  
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("Times", "Normal");
+  
+    // Clean markdown-like text into readable layout
+    let cleaned = analysisText
+      .replace(/\*\*(.*?)\*\*/g, (_, p1) => `\n\n${p1.toUpperCase()}\n`) // Section titles
+      .replace(/\* (.*?)(?=\n|$)/g, '   $1')                            // Bullets
+      .replace(/\n{2,}/g, "\n")                                       // Double line spacing
+      .replace(/:{2,}/g, ':')                                           // Fix "::"
+      .replace(/`/g, '');                                               // Remove code ticks
+  
+    const lines = doc.splitTextToSize(cleaned.trim(), 180);
+  
+    let y = 30;
+    const lineHeight = 8;
+  
+    lines.forEach((line) => {
+      // Add spacing before section titles
+      if (line === line.toUpperCase() && line.length < 40) {
+        doc.setFont("Times", "Bold");
+        y += 4;
+      } else {
+        doc.setFont("Times", "Normal");
+      }
+  
+      doc.text(line, 10, y);
+      y += lineHeight;
+  
+      // If nearing page bottom
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
+    });
+  
+    // --- Page 2: Time Series Table ---
+    if (chartData.length > 0) {
+      doc.addPage();
+      doc.setFont("Times", "Bold");
+      doc.setFontSize(16);
+      doc.setTextColor(46, 204, 113);
+      doc.text("Time Series Trend Data", 10, 20);
+  
+      const tableData = chartData.map((d) => [
+        indexName,
+        d.date,
+        d.value.toFixed(2),
+      ]);
+  
+      autoTable(doc, {
+        head: [["Index", "Date", "Value"]],
+        body: tableData,
+        startY: 30,
+        headStyles: {
+          fillColor: [46, 204, 113],
+          textColor: 255,
+          fontStyle: 'bold',
+          font: 'times'
+        },
+        bodyStyles: {
+          font: 'times',
+          fontSize: 11,
+          textColor: 50,
+        },
+        styles: {
+          halign: 'center',
+          cellPadding: 4,
+        },
+        alternateRowStyles: {
+          fillColor: [245, 245, 245],
+        },
+      });
     }
+  
+    doc.save("analysis_report.pdf");
   };
-
-  const pollutantInfo: Record<string, { [key: string]: string }> = {
-    NO2: {
-      what: "Nitrogen Dioxide is a reddish-brown gas primarily released from vehicles and industrial activity.",
-      health:
-        "Exposure can worsen asthma, irritate the lungs, and increase respiratory infections.",
-      environment:
-        "Reduces photosynthesis, damages leaves, and contributes to acid rain and smog.",
-      sources: "Traffic emissions, power plants, and fuel combustion.",
-      importance:
-        "Crucial to monitor in urban environments to reduce respiratory diseases and smog.",
-      action:
-        "Promote green transport, improve fuel efficiency, and plant pollution-absorbing trees.",
-    },
-    SO2: {
-      what: "Sulfur Dioxide is a colorless gas with a strong odor, often associated with volcanic and industrial activity.",
-      health:
-        "Can aggravate lung diseases like asthma and cause shortness of breath.",
-      environment:
-        "Contributes to acid rain, harming ecosystems and corroding buildings.",
-      sources:
-        "Coal-burning power plants, industrial boilers, and metal smelting.",
-      importance:
-        "Important to track in regions with heavy industry and fuel burning.",
-      action:
-        "Support cleaner energy sources and reduce reliance on high-sulfur fuels.",
-    },
-    CO: {
-      what: "Carbon Monoxide is a colorless, odorless gas from incomplete combustion.",
-      health:
-        "High levels reduce oxygen delivery to organs and can be fatal in enclosed spaces.",
-      environment:
-        "While not a greenhouse gas, it contributes indirectly to ozone formation.",
-      sources: "Vehicle exhaust, cooking stoves, and fossil fuel combustion.",
-      importance:
-        "Monitoring helps prevent health risks in densely populated areas.",
-      action:
-        "Ventilate enclosed spaces, use clean stoves, and avoid idling engines.",
-    },
-    Aerosol: {
-      what: "Aerosols are tiny particles or droplets in the air, some of which absorb sunlight.",
-      health:
-        "Can penetrate deep into lungs and lead to heart and lung diseases.",
-      environment:
-        "Affect climate by reflecting or absorbing solar radiation and altering cloud formation.",
-      sources:
-        "Dust storms, vehicle emissions, biomass burning, and sea spray.",
-      importance:
-        "Helps understand visibility, pollution spread, and climate impact.",
-      action:
-        "Reduce emissions, support reforestation, and monitor air quality alerts.",
-    },
-  };
-
-  const currentInfo = pollutantInfo[pollutant];
+  
+  
+  
 
   return (
     <div className="analysis-page-fixed">
       <div className="dashboard-section">
+        {/* Left Sidebar */}
         <div className="analysis-sidebar">
           <h2>Select Analysis Type</h2>
           <select
@@ -143,17 +207,44 @@ const SelectAnalysis = () => {
             onChange={(e) => setAnalysisType(e.target.value)}
           >
             <option value="air">Air Quality</option>
-            <option value="water">Water Quality</option>
-            <option value="drought">Drought</option>
             <option value="uhi">Urban Heat Island (UHI)</option>
+            <option value="water">Water Quality (Coming Soon)</option>
+            <option value="drought">Drought Monitoring (Coming Soon)</option>
           </select>
 
           <form onSubmit={handleSubmit} className="analysis-form">
-            <p className="analysis-desc">
-              Air quality monitoring detects harmful gases in the atmosphere
-              like NO2, SO2, CO, and Aerosols using satellite data to visualize
-              pollution levels over time.
-            </p>
+            {/* If Air Quality */}
+            {analysisType === "air" && (
+              <div className="form-row">
+                <label>Pollutant:</label>
+                <select
+                  value={pollutant}
+                  onChange={(e) => setPollutant(e.target.value)}
+                >
+                  <option value="NO2">NO2</option>
+                  <option value="SO2">SO2</option>
+                  <option value="CO">CO</option>
+                  <option value="Aerosol">Aerosol</option>
+                </select>
+              </div>
+            )}
+
+            {/* If UHI */}
+            {analysisType === "uhi" && (
+              <div className="form-row">
+                <label>Index:</label>
+                <select
+                  value={uhiIndex}
+                  onChange={(e) => setUhiIndex(e.target.value)}
+                >
+                  <option value="UHI">UHI</option>
+                  <option value="LST">LST</option>
+                  <option value="UTFVI">UTFVI</option>
+                </select>
+              </div>
+            )}
+
+            {/* Dates */}
             <div className="form-row">
               <label>Start Date:</label>
               <input
@@ -174,19 +265,7 @@ const SelectAnalysis = () => {
               />
             </div>
 
-            <div className="form-row">
-              <label>Pollutant:</label>
-              <select
-                value={pollutant}
-                onChange={(e) => setPollutant(e.target.value)}
-              >
-                <option value="NO2">NO2</option>
-                <option value="SO2">SO2</option>
-                <option value="CO">CO</option>
-                <option value="Aerosol">Aerosol</option>
-              </select>
-            </div>
-
+            {/* Submit */}
             <button type="submit" className="generate-button">
               Generate
             </button>
@@ -194,6 +273,7 @@ const SelectAnalysis = () => {
           </form>
         </div>
 
+        {/* Center Map Display */}
         <div className="analysis-map-container">
           {isLoading && (
             <div className="fvc-loading-overlay">
@@ -201,7 +281,6 @@ const SelectAnalysis = () => {
               <p>Loading map...</p>
             </div>
           )}
-
           <iframe
             src={mapUrl}
             title="Analysis Map"
@@ -211,10 +290,9 @@ const SelectAnalysis = () => {
           ></iframe>
         </div>
 
+        {/* Right Panel - Chart */}
         <div className="analysis-right-panel">
-          <h3>Analysis Results</h3>
-          <p className="chart-description">{getChartExplanation(pollutant)}</p>
-
+          <h3>Time Series Trend</h3>
           <div className="form-row">
             <label>Aggregation:</label>
             <select
@@ -232,53 +310,32 @@ const SelectAnalysis = () => {
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" name="Date" />
-                  <YAxis
-                    tickFormatter={(v) => `${v}`}
-                    unit={
-                      pollutant === "CO"
-                        ? " mol/m²"
-                        : pollutant === "Aerosol"
-                        ? ""
-                        : " μmol/m²"
-                    }
-                  />
+                  <XAxis dataKey="date" />
+                  <YAxis />
                   <Tooltip
-                    formatter={(value: number) => {
-                      const unit =
-                        pollutant === "CO"
-                          ? "mol/m²"
-                          : pollutant === "Aerosol"
-                          ? ""
-                          : "μmol/m²";
-                      return [`${pollutant}: ${value} ${unit}`];
-                    }}
-                    labelFormatter={(label: string) => {
-                      if (aggregation === "monthly") {
-                        const [year, month] = label.split("-");
-                        return `${month}/${year}`;
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div
+                            style={{
+                              background: "#1a1a1a",
+                              padding: "10px",
+                              borderRadius: "8px",
+                              color: "#fff",
+                            }}
+                          >
+                            <p>
+                              <strong>Date:</strong> {label}
+                            </p>
+                            <p>
+                              <strong>Value:</strong> {payload[0].value}
+                            </p>
+                          </div>
+                        );
                       }
-                      return label;
-                    }}
-                    contentStyle={{
-                      backgroundColor: "#fff",
-                      border: "1px solid #ccc",
-                      borderRadius: "8px",
-                      fontSize: "13px",
-                      padding: "10px",
-                      color: "#333",
-                    }}
-                    itemStyle={{
-                      color: "#2ecc71",
-                      fontWeight: 400,
-                    }}
-                    labelStyle={{
-                      color: "#2ecc71",
-                      fontWeight: 400,
-                      marginBottom: "4px",
+                      return null;
                     }}
                   />
-
                   <Line
                     type="monotone"
                     dataKey="value"
@@ -288,33 +345,54 @@ const SelectAnalysis = () => {
                   />
                 </LineChart>
               </ResponsiveContainer>
+              <div style={{ marginTop: "10px" }}>
+                <button className="generate-button" onClick={exportCSV}>
+                  Download CSV
+                </button>
+              </div>
             </div>
           ) : (
-            <p>No chart data to display yet.</p>
+            <p>No chart data yet.</p>
+          )}
+
+          {/* AI Text Analysis Result */}
+          {analysisText && (
+            <div
+              style={{
+                marginTop: "20px",
+                padding: "15px",
+                backgroundColor: "#1a1a1a",
+                borderRadius: "8px",
+              }}
+            >
+              <h4 style={{ color: "#2ecc71", marginBottom: "10px" }}>
+                AI Analysis Summary
+              </h4>
+              <ReactMarkdown
+                children={analysisText}
+                components={{
+                  h1: ({ node, ...props }) => (
+                    <h1 style={{ fontSize: "24px", color: "#2ecc71" }} {...props} />
+                  ),
+                  h2: ({ node, ...props }) => (
+                    <h2 style={{ fontSize: "20px", color: "#2ecc71" }} {...props} />
+                  ),
+                  p: ({ node, ...props }) => (
+                    <p style={{ fontSize: "14px", color: "#cccccc" }} {...props} />
+                  ),
+                  strong: ({ node, ...props }) => (
+                    <strong style={{ color: "#ffffff" }} {...props} />
+                  ),
+                }}
+              />
+              <div style={{ marginTop: "10px" }}>
+                <button className="generate-button" onClick={exportPDF}>
+                  Download PDF
+                </button>
+              </div>
+            </div>
           )}
         </div>
-      </div>
-
-      <div className="analysis-info-section">
-        <h2>Understanding {pollutant}</h2>
-        <p>
-          <strong>What is it?</strong> {currentInfo.what}
-        </p>
-        <p>
-          <strong>Health Effects:</strong> {currentInfo.health}
-        </p>
-        <p>
-          <strong>Environmental Impact:</strong> {currentInfo.environment}
-        </p>
-        <p>
-          <strong>Sources:</strong> {currentInfo.sources}
-        </p>
-        <p>
-          <strong>Why it matters:</strong> {currentInfo.importance}
-        </p>
-        <p>
-          <strong>What you can do:</strong> {currentInfo.action}
-        </p>
       </div>
     </div>
   );

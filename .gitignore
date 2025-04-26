@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+venv/
+instance/
+.venv/
+.env
+
+# Earth Engine private keys
+Server/PrivateKey/
+PrivateKey/
+
+# Flask cache
+*.db
+*.sqlite3
+
+# React / Node
+Client/node_modules/
+Client/build/
+Client/.env
+
+# VSCode and IDEs
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+
+# Ignore generated maps if needed
+# Server/static/*.html   (❓ optional if you want)
+
+# Ignore secrets
+secret.json
+*.pem
+*.key

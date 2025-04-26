@@ -29,6 +29,21 @@ class AirQuality(EcoVariable):
         viz_params = self.dataset_mapping[self.name][2]
         collection = self.retrieveData()
         mean_image = collection.mean().clip(self.location)
+
+        # 🟰 Save mean value to memory
+        mean_val = mean_image.reduceRegion(
+                reducer=ee.Reducer.mean(),
+                geometry=self.location,
+                scale=1000,
+                maxPixels=1e9
+            ).get(self.dataset_mapping[self.name][1])
+
+        self.mean_val = mean_val.getInfo() if mean_val else None
+
+        # Scale for NO2 and SO2
+        if self.name in ["NO2", "SO2"] and self.mean_val is not None:
+                self.mean_val *= 1e6
+
         map_id_dict = mean_image.getMapId(viz_params)
 
         boundary_geojson = self.admin_boundaries.getInfo()
@@ -64,9 +79,16 @@ class AirQuality(EcoVariable):
         m.get_root().html.add_child(folium.Element(self.legendHTML()))
         folium.LayerControl().add_to(m)
 
-        output_file = f"static/{self.name}_map.html"
-        m.save(output_file)
-        return output_file
+        import os
+        
+        # Save inside Server/static/
+        static_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))
+        os.makedirs(static_folder, exist_ok=True)
+
+        output_file_path = os.path.join(static_folder, f"{self.name}_map.html")
+        m.save(output_file_path)
+
+        return f"static/{self.name}_map.html"
 
 
     def generateChart(self, aggregation="daily"):
@@ -143,8 +165,13 @@ class AirQuality(EcoVariable):
 
 
     def generateAiAnalysis(self):
-        # Placeholder for future AI analysis
-        pass
+        if self.mean_val is None:
+            return "Statistics are not available to generate analysis."
+
+        description = f"{self.name} mean: {self.mean_val:.6f}"
+
+        return self.gemini.generate(description, self.startTime, self.endTime)
+
 
     def legendHTML(self):
         return f'''

@@ -4,6 +4,7 @@ from lai_prediction_pipeline import get_lai_prediction, get_current_lai
 from flask_cors import CORS
 from Location import Location  
 from Factory.AirQuality import AirQuality
+from Factory.UHI import UHI
 
 
 
@@ -19,32 +20,67 @@ def home():
 @app.route("/air_analysis", methods=["POST"])
 def air_analysis():
     try:
+        print("[DEBUG] Form keys:", request.form.keys())
+        print("[DEBUG] Form full:", request.form)
         start_date = request.form["start_date"]
         end_date = request.form["end_date"]
-        map_type = request.form["map_type"]
+        selected_index = request.form["selected_index"]
         aggregation = request.form.get("aggregation", "daily")
 
 
-        print(f"[INFO] Air analysis request: {start_date} to {end_date}, type: {map_type}")
+        print(f"[INFO] Air analysis request: {start_date} to {end_date}, type: {selected_index}")
 
         location = Location.get_predefined_region("jeddah_admin").get_geometry()
-        analysis = AirQuality(name=map_type, location=location, startTime=start_date, endTime=end_date)
+        analysis = AirQuality(name=selected_index, location=location, startTime=start_date, endTime=end_date)
 
         map_url = analysis.generateMap()
         chart_data = analysis.generateChart(aggregation)
-
+        analysis_text = analysis.generateAiAnalysis()
 
 
 
         return jsonify({
             "map_url": map_url,
-            "chart_data": chart_data
+            "chart_data": chart_data,
+            "analysis_text": analysis_text
         })
 
     except Exception as e:
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+    
+   
+
+@app.route("/uhi_analysis", methods=["POST"])
+def uhi_analysis():
+    try:
+        start_date = request.form["start_date"]
+        end_date = request.form["end_date"]
+        selected_index = request.form["selected_index"]
+        aggregation = request.form.get("aggregation", "daily")
+
+        location = Location.get_predefined_region("jeddah_admin").get_geometry()
+
+        analysis = UHI(name=selected_index, location=location, startTime=start_date, endTime=end_date)
+
+        map_url = analysis.generateMap()
+        chart_data = analysis.generateChart(aggregation)
+        analysis_text = analysis.generateAiAnalysis()
+
+        return jsonify({
+            "map_url": map_url,
+            "chart_data": chart_data,
+            "analysis_text": analysis_text
+        })
+
+
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 
 
 @app.route("/predict_fvc", methods=["POST"])

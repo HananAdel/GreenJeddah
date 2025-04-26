@@ -23,3 +23,9 @@ class Drought(EcoVariable):
 
     def generateAiAnalysis():
         pass
+       #to generate the analysis you need to pass to this method self.gemini.generate(description,self.startTime, self.endTime)
+        
+       # description = the real valuse of your index  for example f"{self.name} mean: {self.lst_mean:.2f}, std dev: {std_val:.2f}"
+
+        #check what I did in UHI and AirQuality classes to undrstand what I mean
+        
