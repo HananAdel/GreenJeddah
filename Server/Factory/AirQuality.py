@@ -22,7 +22,7 @@ class AirQuality(EcoVariable):
         dataset_id, band, _ = self.dataset_mapping[self.name]
         return ee.ImageCollection(dataset_id).select(band).filterDate(self.startTime, self.endTime)
 
-    def generateMap(self):
+    def generateMap(self,suffix=""):
         if self.name not in self.dataset_mapping:
             raise ValueError("Invalid air quality variable selected.")
         
@@ -85,10 +85,9 @@ class AirQuality(EcoVariable):
         static_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))
         os.makedirs(static_folder, exist_ok=True)
 
-        output_file_path = os.path.join(static_folder, f"{self.name}_map.html")
-        m.save(output_file_path)
-
-        return f"static/{self.name}_map.html"
+        output_file = f"static/{self.name}_map{suffix}.html"
+        m.save(output_file) 
+        return output_file
 
 
     def generateChart(self, aggregation="daily"):

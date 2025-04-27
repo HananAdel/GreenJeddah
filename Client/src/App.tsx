@@ -5,6 +5,7 @@ import Services from "./Services.tsx";
 import Signup from "./Signup.tsx";
 import SelectAnalysis from "./SelectAnalysis.tsx";
 import FVC from "./FVC.tsx";
+import CompareData from "./CompareData.tsx";
 
 function App() {
   const [page, setPage] = useState("home"); // Track the current page
@@ -37,6 +38,7 @@ function App() {
       {page === "signup" && <Signup setPage={setPage} />}
       {page === "monitoring" && <SelectAnalysis setPage={setPage} />}
       {page === "ai-model" && <FVC setPage={setPage} />}
+      {page === "compare-data" && <CompareData setPage={setPage} />}
     </div>
   );
 }

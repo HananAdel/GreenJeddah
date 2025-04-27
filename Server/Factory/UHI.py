@@ -17,7 +17,7 @@ class UHI(EcoVariable):
         return collection
         
         
-    def generateMap(self):
+    def generateMap(self,suffix=""):
         try:
             def apply_scale_factors(image):
                 optical = image.select('SR_B.').multiply(0.0000275).add(-0.2)
@@ -125,10 +125,9 @@ class UHI(EcoVariable):
             static_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))
             os.makedirs(static_folder, exist_ok=True)
 
-            output_path = os.path.join(static_folder, f"{self.name}_map.html")
-            m.save(output_path)
-
-            return f"static/{self.name}_map.html"
+            output_file = f"static/{self.name}_map{suffix}.html"
+            m.save(output_file) 
+            return output_file
 
             
         except Exception as e:

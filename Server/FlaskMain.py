@@ -7,7 +7,7 @@ from Factory.AirQuality import AirQuality
 from Factory.UHI import UHI
 from Factory.WaterQuality import WaterQuality
 from Factory.Drought import Drought
-
+from CompareAnalysis import CompareAnalysis 
 
 app = Flask(__name__)
 CORS(app)
@@ -165,6 +165,38 @@ def predict_fvc():
             "date_range": current["date_range"],
             "area_km2": round(area_km2, 2)
         })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/compare_data", methods=["POST"])
+def compare_data():
+    try:
+        first_start = request.form["first_start"]
+        first_end = request.form["first_end"]
+        second_start = request.form["second_start"]
+        second_end = request.form["second_end"]
+        indicator = request.form["indicator"]
+        district1 = request.form["district1"]
+        district2 = request.form["district2"]
+
+
+        comparison = CompareAnalysis(
+            indicator=indicator,
+            first_start=first_start,
+            first_end=first_end,
+            second_start=second_start,
+            second_end=second_end,
+            district1=district1,
+            district2=district2
+        )
+
+        result = comparison.generate_comparison()
+
+        return jsonify(result)
 
     except Exception as e:
         import traceback

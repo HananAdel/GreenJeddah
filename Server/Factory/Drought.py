@@ -18,7 +18,7 @@ class Drought(EcoVariable):
         )
         return ndvi_collection
 
-    def generateMap(self):
+    def generateMap(self, suffix=""):
         ndvi_collection = self.retrieveData()
 
         ndvi_min = ndvi_collection.reduce(ee.Reducer.min())
@@ -79,8 +79,8 @@ class Drought(EcoVariable):
 
         folium.LayerControl().add_to(m)
 
-        output_file = f"static/{self.name}_map.html"
-        m.save(output_file)
+        output_file = f"static/{self.name}_map{suffix}.html"
+        m.save(output_file) 
         return output_file
 
     def generateChart(self, aggregation="daily"):

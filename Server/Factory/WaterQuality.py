@@ -35,7 +35,7 @@ class WaterQuality(EcoVariable):
 
 
 
-    def generateMap(self):
+    def generateMap(self,suffix=""):
         image = self.retrieveData()
 
         # Calculate indices
@@ -91,11 +91,11 @@ class WaterQuality(EcoVariable):
             overlay=True,
             control=True
         ).add_to(m)
-        
+
         folium.LayerControl().add_to(m)
 
-        output_file = f"static/{self.name}_map.html"
-        m.save(output_file)
+        output_file = f"static/{self.name}_map{suffix}.html"
+        m.save(output_file) 
         return output_file
 
 

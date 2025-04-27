@@ -30,10 +30,11 @@ const CustomServices = ({ setPage }: { setPage: (page: string) => void }) => {
     if (id === "monitoring") {
       setPage("monitoring");
     }
-
     // Change "services" to your Monitoring page ID if needed
     else if (id === "ai-model") {
       setPage("ai-model");
+    } else if (id === "compare-data") {
+      setPage("compare-data"); // new CompareData.tsx
     } else {
       alert(`Button clicked for ${id}`);
     }
